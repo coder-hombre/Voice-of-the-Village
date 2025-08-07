@@ -1,0 +1,13 @@
+{
+  "itemGroup.voiceofthevillage": "Example Mod Tab",
+  "block.voiceofthevillage.example_block": "Example Block",
+  "item.voiceofthevillage.example_item": "Example Item",
+
+  "voiceofthevillage.configuration.title": "Voice Of The Village Configs",
+  "voiceofthevillage.configuration.section.voiceofthevillage.common.toml": "Voice Of The Village Configs",
+  "voiceofthevillage.configuration.section.voiceofthevillage.common.toml.title": "Voice Of The Village Configs",
+  "voiceofthevillage.configuration.items": "Item List",
+  "voiceofthevillage.configuration.logDirtBlock": "Log Dirt Block",
+  "voiceofthevillage.configuration.magicNumberIntroduction": "Magic Number Text",
+  "voiceofthevillage.configuration.magicNumber": "Magic Number"
+}
