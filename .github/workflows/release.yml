@@ -1,0 +1,290 @@
+name: Build and Release Mod
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch:  # Allows manual triggering
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - beta
+          - alpha
+
+env:
+  JAVA_VERSION: 21
+  GRADLE_OPTS: -Dorg.gradle.daemon=false
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-home-cache-cleanup: true
+          
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Run Tests
+        run: ./gradlew test --no-daemon --stacktrace
+        
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: build/reports/tests/test/
+          
+      - name: Upload Test Coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-coverage
+          path: build/reports/jacoco/test/html/
+
+  build:
+    name: Build Mod
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      mod-file: ${{ steps.build.outputs.mod-file }}
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-home-cache-cleanup: true
+          
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Determine Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+          
+      - name: Update Version in gradle.properties
+        run: |
+          sed -i "s/mod_version=.*/mod_version=${{ steps.version.outputs.version }}/" gradle.properties
+          
+      - name: Build Mod
+        id: build
+        run: |
+          ./gradlew build --no-daemon --stacktrace
+          MOD_FILE=$(find build/libs -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)
+          echo "mod-file=$MOD_FILE" >> $GITHUB_OUTPUT
+          echo "Built mod file: $MOD_FILE"
+          
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar
+          path: build/libs/*.jar
+          
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            # Extract changelog for current version
+            awk '/^## \[${{ steps.version.outputs.version }}\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > current_changelog.txt
+          else
+            echo "Release ${{ steps.version.outputs.version }}" > current_changelog.txt
+            echo "" >> current_changelog.txt
+            echo "- Automated release" >> current_changelog.txt
+          fi
+          
+          # Set multiline output
+          {
+            echo 'changelog<<EOF'
+            cat current_changelog.txt
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
+  upload-curseforge:
+    name: Upload to CurseForge
+    runs-on: ubuntu-latest
+    needs: build
+    if: success()
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mod-jar
+          path: build/libs/
+          
+      - name: Upload to CurseForge
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          curseforge-id: ${{ secrets.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_API_TOKEN }}
+          
+          files: build/libs/voiceofthevillage-${{ needs.build.outputs.version }}.jar
+          name: Voice of the Village v${{ needs.build.outputs.version }}
+          version: ${{ needs.build.outputs.version }}
+          version-type: ${{ github.event.inputs.release_type || 'release' }}
+          
+          changelog: |
+            ${{ needs.build.outputs.changelog }}
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ needs.build.outputs.version }}...HEAD
+          
+          loaders: |
+            neoforge
+          
+          game-versions: |
+            1.21.1
+          
+          dependencies: |
+            neoforge | depends | >=21.1.197
+          
+          java: |
+            21
+
+  upload-modrinth:
+    name: Upload to Modrinth
+    runs-on: ubuntu-latest
+    needs: build
+    if: success()
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mod-jar
+          path: build/libs/
+          
+      - name: Upload to Modrinth
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ secrets.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_API_TOKEN }}
+          
+          files: build/libs/voiceofthevillage-${{ needs.build.outputs.version }}.jar
+          name: Voice of the Village v${{ needs.build.outputs.version }}
+          version: ${{ needs.build.outputs.version }}
+          version-type: ${{ github.event.inputs.release_type || 'release' }}
+          
+          changelog: |
+            ${{ needs.build.outputs.changelog }}
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ needs.build.outputs.version }}...HEAD
+          
+          loaders: |
+            neoforge
+          
+          game-versions: |
+            1.21.1
+          
+          dependencies: |
+            neoforge | required | >=21.1.197
+          
+          java: |
+            21
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build, upload-curseforge, upload-modrinth]
+    if: success()
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mod-jar
+          path: build/libs/
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: Voice of the Village v${{ needs.build.outputs.version }}
+          body: |
+            ${{ needs.build.outputs.changelog }}
+            
+            ## Downloads
+            - [CurseForge](https://www.curseforge.com/minecraft/mc-mods/voice-of-the-village)
+            - [Modrinth](https://modrinth.com/mod/voice-of-the-village)
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ needs.build.outputs.version }}...HEAD
+          files: build/libs/*.jar
+          draft: false
+          prerelease: ${{ github.event.inputs.release_type == 'alpha' || github.event.inputs.release_type == 'beta' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [build, upload-curseforge, upload-modrinth, create-github-release]
+    if: success()
+    
+    steps:
+      - name: Success Notification
+        run: |
+          echo "🎉 Successfully released Voice of the Village v${{ needs.build.outputs.version }}!"
+          echo "✅ Tests passed"
+          echo "✅ Build completed"
+          echo "✅ Uploaded to CurseForge"
+          echo "✅ Uploaded to Modrinth"
+          echo "✅ GitHub release created"
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [test, build, upload-curseforge, upload-modrinth, create-github-release]
+    if: failure()
+    
+    steps:
+      - name: Failure Notification
+        run: |
+          echo "❌ Release failed for Voice of the Village"
+          echo "Check the workflow logs for details"

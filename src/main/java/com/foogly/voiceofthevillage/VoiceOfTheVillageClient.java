@@ -1,5 +1,8 @@
 package com.foogly.voiceofthevillage;
 
+import com.foogly.voiceofthevillage.input.PushToTalkHandler;
+import com.foogly.voiceofthevillage.input.SpeakingIndicator;
+import com.foogly.voiceofthevillage.interaction.SimpleModeCommunicationHandler;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -9,6 +12,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.common.NeoForge;
 
 // This class will not load on dedicated servers. Accessing client side code from here is safe.
 @Mod(value = VoiceOfTheVillage.MODID, dist = Dist.CLIENT)
@@ -27,5 +31,14 @@ public class VoiceOfTheVillageClient {
         // Some client setup code
         VoiceOfTheVillage.LOGGER.info("HELLO FROM CLIENT SETUP");
         VoiceOfTheVillage.LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+        
+        // Register simple mode communication handler
+        NeoForge.EVENT_BUS.register(SimpleModeCommunicationHandler.class);
+        VoiceOfTheVillage.LOGGER.info("Registered SimpleModeCommunicationHandler for client-side villager interactions");
+        
+        // Register advanced mode input handlers
+        NeoForge.EVENT_BUS.register(PushToTalkHandler.class);
+        NeoForge.EVENT_BUS.register(SpeakingIndicator.class);
+        VoiceOfTheVillage.LOGGER.info("Registered advanced mode input handlers for push-to-talk functionality");
     }
 }

@@ -9,5 +9,33 @@
   "voiceofthevillage.configuration.items": "Item List",
   "voiceofthevillage.configuration.logDirtBlock": "Log Dirt Block",
   "voiceofthevillage.configuration.magicNumberIntroduction": "Magic Number Text",
-  "voiceofthevillage.configuration.magicNumber": "Magic Number"
+  "voiceofthevillage.configuration.magicNumber": "Magic Number",
+
+  "key.categories.voiceofthevillage": "Voice of the Village",
+  "key.voiceofthevillage.push_to_talk": "Push to Talk",
+
+  "message.voiceofthevillage.no_villager_targeted": "No villager in sight",
+  "message.voiceofthevillage.villager_too_far": "Villager is too far away (%.1f blocks, max %.1f)",
+  "message.voiceofthevillage.recording_unavailable": "Voice recording is currently unavailable",
+  "message.voiceofthevillage.recording_started": "Speaking to %s...",
+  "message.voiceofthevillage.recording_stopped": "Recording stopped",
+  "message.voiceofthevillage.message_sent": "Message sent to %s",
+
+  "gui.voiceofthevillage.speaking_to": "Speaking to %s",
+  "gui.voiceofthevillage.release_to_send": "Release key to send",
+
+  "command.voiceofthevillage.voice.player_only": "This command can only be used by players",
+  "command.voiceofthevillage.voice.advanced_mode_only": "Voice command is only available in advanced mode",
+  "command.voiceofthevillage.voice.empty_villager_name": "Villager name cannot be empty",
+  "command.voiceofthevillage.voice.villager_name_too_long": "Villager name is too long (max %d characters)",
+  "command.voiceofthevillage.voice.empty_message": "Message cannot be empty",
+  "command.voiceofthevillage.voice.message_too_long": "Message is too long (max %d characters)",
+  "command.voiceofthevillage.voice.malformed_quotes": "Message must be properly quoted with 'message' or \"message\"",
+  "command.voiceofthevillage.voice.villager_not_found": "No villager named '%s' found nearby",
+  "command.voiceofthevillage.voice.villager_too_far": "Villager '%s' is too far away (%.1f blocks, max %.1f blocks)",
+  "command.voiceofthevillage.voice.message_sent": "Message sent to %s",
+  "command.voiceofthevillage.voice.error": "An error occurred while processing the voice command",
+
+  "error.voiceofthevillage.recording_failed": "Failed to start voice recording",
+  "error.voiceofthevillage.processing_failed": "Failed to process voice input"
 }

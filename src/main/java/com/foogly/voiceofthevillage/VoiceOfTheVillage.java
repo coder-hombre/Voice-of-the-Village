@@ -2,6 +2,8 @@ package com.foogly.voiceofthevillage;
 
 import org.slf4j.Logger;
 
+import com.foogly.voiceofthevillage.command.VoiceCommand;
+import com.foogly.voiceofthevillage.config.VoiceConfig;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -25,6 +27,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -86,12 +89,30 @@ public class VoiceOfTheVillage {
 
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        // Register the Voice of the Village configuration
+        modContainer.registerConfig(ModConfig.Type.COMMON, VoiceConfig.SPEC);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
-        // Some common setup code
-        LOGGER.info("HELLO FROM COMMON SETUP");
+        // Voice of the Village setup
+        LOGGER.info("Voice of the Village - Common Setup");
 
+        // Log configuration status
+        if (VoiceConfig.DEBUG_MODE.get()) {
+            LOGGER.info("Debug mode enabled");
+        }
+
+        if (VoiceConfig.isAIConfigured()) {
+            LOGGER.info("AI configuration detected - Provider: {}, Model: {}", 
+                    VoiceConfig.AI_PROVIDER.get(), VoiceConfig.AI_MODEL.get());
+        } else {
+            LOGGER.warn("AI not configured - villager responses will not work without proper AI setup");
+        }
+
+        LOGGER.info("Interaction mode: {}", VoiceConfig.ADVANCED_MODE.get() ? "Advanced" : "Simple");
+        LOGGER.info("Interaction distance: {} blocks", VoiceConfig.getEffectiveInteractionDistance());
+
+        // Legacy example setup code
         if (Config.LOG_DIRT_BLOCK.getAsBoolean()) {
             LOGGER.info("DIRT BLOCK >> {}", BuiltInRegistries.BLOCK.getKey(Blocks.DIRT));
         }
@@ -113,5 +134,12 @@ public class VoiceOfTheVillage {
     public void onServerStarting(ServerStartingEvent event) {
         // Do something when the server starts
         LOGGER.info("HELLO from server starting");
+    }
+    
+    // Register commands
+    @SubscribeEvent
+    public void onRegisterCommands(RegisterCommandsEvent event) {
+        VoiceCommand.register(event.getDispatcher());
+        LOGGER.info("Registered /voice command for advanced mode communication");
     }
 }
