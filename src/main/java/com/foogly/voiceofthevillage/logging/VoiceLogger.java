@@ -256,10 +256,10 @@ public class VoiceLogger {
         private final String conversationId;
         
         public ConversationContext(String conversationId, String playerName, UUID villagerId) {
-            this.conversationId = conversationId;
-            MDC.put(CONVERSATION_KEY, conversationId);
-            MDC.put(PLAYER_KEY, playerName);
-            MDC.put(VILLAGER_KEY, villagerId.toString());
+            this.conversationId = conversationId != null ? conversationId : "unknown";
+            MDC.put(CONVERSATION_KEY, this.conversationId);
+            MDC.put(PLAYER_KEY, playerName != null ? playerName : "unknown");
+            MDC.put(VILLAGER_KEY, villagerId != null ? villagerId.toString() : "unknown");
         }
         
         public void log(String level, String component, String operation, String message, Object... args) {

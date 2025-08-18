@@ -1,0 +1,185 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - 'gradle.properties'
+      - 'CHANGELOG.md'
+      - '.github/**'
+      - 'README*.md'
+      - 'scripts/**'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+env:
+  JAVA_VERSION: 21
+
+jobs:
+  auto-version:
+    name: Auto Version Bump
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip version]') && !contains(github.event.head_commit.message, '[version skip]')"
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-home-cache-cleanup: true
+          
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Determine Version Bump Type
+        id: bump_type
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP_TYPE="${{ github.event.inputs.bump_type }}"
+          else
+            # Analyze commit message for version bump hints
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+            if [[ "$COMMIT_MSG" =~ \[major\]|\[breaking\]|BREAKING\ CHANGE ]]; then
+              BUMP_TYPE="major"
+            elif [[ "$COMMIT_MSG" =~ \[minor\]|\[feature\]|feat: ]]; then
+              BUMP_TYPE="minor"
+            else
+              BUMP_TYPE="patch"
+            fi
+          fi
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "Version bump type: $BUMP_TYPE"
+          
+      - name: Get Current Version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep "mod_version=" gradle.properties | cut -d'=' -f2)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+          
+      - name: Calculate New Version
+        id: new_version
+        run: |
+          CURRENT="${{ steps.current_version.outputs.current_version }}"
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          
+          # Parse current version
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # Bump version based on type
+          case $BUMP_TYPE in
+            "major")
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            "minor")
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            "patch")
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+          
+      - name: Update Version in gradle.properties
+        run: |
+          sed -i "s/mod_version=.*/mod_version=${{ steps.new_version.outputs.new_version }}/" gradle.properties
+          echo "Updated gradle.properties with version ${{ steps.new_version.outputs.new_version }}"
+          
+      - name: Run Tests
+        run: |
+          ./gradlew test --no-daemon --stacktrace
+          
+      - name: Build Mod
+        run: |
+          ./gradlew build --no-daemon --stacktrace
+          
+      - name: Update Changelog
+        run: |
+          # Create changelog entry
+          DATE=$(date +%Y-%m-%d)
+          NEW_VERSION="${{ steps.new_version.outputs.new_version }}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          
+          # Create temporary changelog
+          cat > temp_changelog.md << EOF
+          # Changelog
+          
+          All notable changes to the Voice of the Village mod will be documented in this file.
+          
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+          
+          ## [Unreleased]
+          
+          ## [$NEW_VERSION] - $DATE
+          
+          ### Changed
+          - $COMMIT_MSG
+          
+          EOF
+          
+          # Append existing changelog (skip header and unreleased section)
+          if [ -f CHANGELOG.md ]; then
+            # Find the first version entry and append everything from there
+            awk '/^## \[[0-9]/{found=1} found{print}' CHANGELOG.md >> temp_changelog.md
+          fi
+          
+          mv temp_changelog.md CHANGELOG.md
+          
+      - name: Commit Version Bump
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add gradle.properties CHANGELOG.md
+          git commit -m "🔖 Bump version to ${{ steps.new_version.outputs.new_version }} [skip version]"
+          git push
+          
+      - name: Create Git Tag
+        run: |
+          git tag "v${{ steps.new_version.outputs.new_version }}"
+          git push origin "v${{ steps.new_version.outputs.new_version }}"
+          
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar-v${{ steps.new_version.outputs.new_version }}
+          path: build/libs/*.jar
+          
+      - name: Summary
+        run: |
+          echo "## Version Bump Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous Version:** ${{ steps.current_version.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **New Version:** ${{ steps.new_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump Type:** ${{ steps.bump_type.outputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.event.head_commit.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag Created:** v${{ steps.new_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY

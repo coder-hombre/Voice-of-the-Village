@@ -1,10 +1,7 @@
-name: Build and Release Mod
+name: Manual Release
 
 on:
-  push:
-    tags:
-      - 'v*'  # Triggers on version tags like v1.0.0
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:  # Allows manual triggering only
     inputs:
       version:
         description: 'Version to release (e.g., 1.0.0)'

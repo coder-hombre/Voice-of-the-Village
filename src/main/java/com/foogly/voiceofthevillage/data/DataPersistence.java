@@ -39,8 +39,9 @@ public class DataPersistence {
      * Creates a new DataPersistence instance with the specified base directory.
      *
      * @param baseDirectory The base directory for data storage
+     * @throws RuntimeException If directory initialization fails
      */
-    public DataPersistence(Path baseDirectory) {
+    public DataPersistence(Path baseDirectory) throws RuntimeException {
         this.dataDir = baseDirectory.resolve(DATA_DIRECTORY);
         this.backupDir = baseDirectory.resolve(BACKUP_DIRECTORY);
         initializeDirectories();
@@ -48,8 +49,10 @@ public class DataPersistence {
 
     /**
      * Creates a new DataPersistence instance with the default directory.
+     * 
+     * @throws RuntimeException If directory initialization fails
      */
-    public DataPersistence() {
+    public DataPersistence() throws RuntimeException {
         this(Paths.get("."));
     }
 

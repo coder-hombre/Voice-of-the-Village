@@ -120,10 +120,8 @@ public class AudioCaptureManager {
             }
         } finally {
             // Clean up resources
-            if (microphone != null) {
-                microphone.stop();
-                microphone.close();
-            }
+            microphone.stop();
+            microphone.close();
             isRecording.set(false);
         }
         

@@ -1,0 +1,260 @@
+name: Release on Version Tag
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0
+
+env:
+  JAVA_VERSION: 21
+  GRADLE_OPTS: -Dorg.gradle.daemon=false
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-home-cache-cleanup: true
+          
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Extract Version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+          
+      - name: Verify Version Matches
+        run: |
+          GRADLE_VERSION=$(grep "mod_version=" gradle.properties | cut -d'=' -f2)
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          
+          if [ "$GRADLE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: Version mismatch!"
+            echo "gradle.properties version: $GRADLE_VERSION"
+            echo "Git tag version: $TAG_VERSION"
+            exit 1
+          fi
+          
+          echo "✅ Version verification passed: $TAG_VERSION"
+          
+      - name: Run Tests
+        run: ./gradlew test --no-daemon --stacktrace
+        
+      - name: Build Mod
+        run: ./gradlew build --no-daemon --stacktrace
+        
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          if [ -f CHANGELOG.md ]; then
+            # Extract changelog for current version
+            awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > current_changelog.txt
+            
+            # If no specific changelog found, create a generic one
+            if [ ! -s current_changelog.txt ]; then
+              echo "### Changes" > current_changelog.txt
+              echo "- Version $VERSION release" >> current_changelog.txt
+            fi
+          else
+            echo "### Changes" > current_changelog.txt
+            echo "- Version $VERSION release" >> current_changelog.txt
+          fi
+          
+          # Set multiline output
+          {
+            echo 'changelog<<EOF'
+            cat current_changelog.txt
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
+  upload-curseforge:
+    name: Upload to CurseForge
+    runs-on: ubuntu-latest
+    needs: release
+    if: success() && vars.ENABLE_CURSEFORGE_UPLOAD == 'true'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-home-cache-cleanup: true
+          
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Build Mod
+        run: ./gradlew build --no-daemon --stacktrace
+        
+      - name: Extract Version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Upload to CurseForge
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          curseforge-id: ${{ secrets.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_API_TOKEN }}
+          
+          files: build/libs/voiceofthevillage-${{ steps.version.outputs.version }}.jar
+          name: Voice of the Village v${{ steps.version.outputs.version }}
+          version: ${{ steps.version.outputs.version }}
+          version-type: release
+          
+          changelog: |
+            ${{ needs.release.outputs.changelog }}
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.version.outputs.version }}...HEAD
+          
+          loaders: |
+            neoforge
+          
+          game-versions: |
+            1.21.1
+          
+          dependencies: |
+            neoforge | depends | >=21.1.197
+          
+          java: |
+            21
+
+  upload-modrinth:
+    name: Upload to Modrinth
+    runs-on: ubuntu-latest
+    needs: release
+    if: success() && vars.ENABLE_MODRINTH_UPLOAD == 'true'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-home-cache-cleanup: true
+          
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Build Mod
+        run: ./gradlew build --no-daemon --stacktrace
+        
+      - name: Extract Version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Upload to Modrinth
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ secrets.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_API_TOKEN }}
+          
+          files: build/libs/voiceofthevillage-${{ steps.version.outputs.version }}.jar
+          name: Voice of the Village v${{ steps.version.outputs.version }}
+          version: ${{ steps.version.outputs.version }}
+          version-type: release
+          
+          changelog: |
+            ${{ needs.release.outputs.changelog }}
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.version.outputs.version }}...HEAD
+          
+          loaders: |
+            neoforge
+          
+          game-versions: |
+            1.21.1
+          
+          dependencies: |
+            neoforge | required | >=21.1.197
+          
+          java: |
+            21
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [release, upload-curseforge, upload-modrinth]
+    if: always() && needs.release.result == 'success'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-home-cache-cleanup: true
+          
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Build Mod
+        run: ./gradlew build --no-daemon --stacktrace
+        
+      - name: Extract Version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Voice of the Village v${{ steps.version.outputs.version }}
+          body: |
+            ${{ needs.release.outputs.changelog }}
+            
+            ## Downloads
+            - [CurseForge](https://www.curseforge.com/minecraft/mc-mods/voice-of-the-village) ${{ needs.upload-curseforge.result == 'success' && '✅' || '❌' }}
+            - [Modrinth](https://modrinth.com/mod/voice-of-the-village) ${{ needs.upload-modrinth.result == 'success' && '✅' || '❌' }}
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.version.outputs.version }}...HEAD
+          files: build/libs/*.jar
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

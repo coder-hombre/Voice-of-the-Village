@@ -149,7 +149,7 @@ public class TextToSpeechProcessor {
         } else {
             String errorMessage = "TTS failed with status: " + response.statusCode();
             try {
-                String responseBody = new String(response.body());
+                String responseBody = new String(response.body(), java.nio.charset.StandardCharsets.UTF_8);
                 JsonObject errorJson = gson.fromJson(responseBody, JsonObject.class);
                 if (errorJson.has("error")) {
                     JsonObject error = errorJson.getAsJsonObject("error");

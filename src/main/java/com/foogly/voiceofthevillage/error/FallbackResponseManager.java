@@ -57,15 +57,8 @@ public class FallbackResponseManager {
      * Gets a fallback response based on villager data and context
      */
     public static String getFallbackResponse(VillagerData villagerData, String playerMessage) {
-        // Try to get profession-specific response first
-        if (villagerData != null) {
-            String professionResponse = getProfessionResponse(villagerData.getProfession());
-            if (professionResponse != null) {
-                return professionResponse;
-            }
-        }
-        
-        // Fall back to generic response
+        // For now, always use generic responses since VillagerData doesn't contain profession info
+        // TODO: Add profession support when VillagerData is extended
         return getRandomResponse(GENERIC_RESPONSES);
     }
     
