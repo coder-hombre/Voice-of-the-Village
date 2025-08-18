@@ -32,7 +32,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-home-cache-cleanup: true
+          cache-cleanup: on-success
           
       - name: Make gradlew executable (Unix)
         if: runner.os != 'Windows'
@@ -66,7 +66,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-home-cache-cleanup: true
+          cache-cleanup: on-success
           
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -97,7 +97,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-home-cache-cleanup: true
+          cache-cleanup: on-success
           
       - name: Make gradlew executable
         run: chmod +x ./gradlew
