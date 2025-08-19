@@ -6,7 +6,6 @@ import com.foogly.voiceofthevillage.command.VoiceCommand;
 import com.foogly.voiceofthevillage.config.VoiceConfig;
 import com.mojang.logging.LogUtils;
 
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.food.FoodProperties;
@@ -15,7 +14,6 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.api.distmarker.Dist;
@@ -87,8 +85,6 @@ public class VoiceOfTheVillage {
         // Register the item to a creative tab
         modEventBus.addListener(this::addCreative);
 
-        // Register our mod's ModConfigSpec so that FML can create and load the config file for us
-        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         // Register the Voice of the Village configuration
         modContainer.registerConfig(ModConfig.Type.COMMON, VoiceConfig.SPEC);
     }
@@ -112,14 +108,7 @@ public class VoiceOfTheVillage {
         LOGGER.info("Interaction mode: {}", VoiceConfig.ADVANCED_MODE.get() ? "Advanced" : "Simple");
         LOGGER.info("Interaction distance: {} blocks", VoiceConfig.getEffectiveInteractionDistance());
 
-        // Legacy example setup code
-        if (Config.LOG_DIRT_BLOCK.getAsBoolean()) {
-            LOGGER.info("DIRT BLOCK >> {}", BuiltInRegistries.BLOCK.getKey(Blocks.DIRT));
-        }
 
-        LOGGER.info("{}{}", Config.MAGIC_NUMBER_INTRODUCTION.get(), Config.MAGIC_NUMBER.getAsInt());
-
-        Config.ITEM_STRINGS.get().forEach((item) -> LOGGER.info("ITEM >> {}", item));
     }
 
     // Add the example block item to the building blocks tab

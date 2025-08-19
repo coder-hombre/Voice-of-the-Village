@@ -36,9 +36,7 @@ public class VoiceOfTheVillageClient {
         NeoForge.EVENT_BUS.register(SimpleModeCommunicationHandler.class);
         VoiceOfTheVillage.LOGGER.info("Registered SimpleModeCommunicationHandler for client-side villager interactions");
         
-        // Register advanced mode input handlers
-        NeoForge.EVENT_BUS.register(PushToTalkHandler.class);
-        NeoForge.EVENT_BUS.register(SpeakingIndicator.class);
-        VoiceOfTheVillage.LOGGER.info("Registered advanced mode input handlers for push-to-talk functionality");
+        // Note: PushToTalkHandler and SpeakingIndicator are automatically registered via @EventBusSubscriber
+        VoiceOfTheVillage.LOGGER.info("Advanced mode input handlers registered automatically via @EventBusSubscriber");
     }
 }
